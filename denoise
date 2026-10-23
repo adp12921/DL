@@ -1,0 +1,84 @@
+# DAE   (pract 4 - autoencoder)
+
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Flatten, Dense, Reshape
+from tensorflow.keras.metrics import MeanSquaredError
+
+# Load data
+(x_train, _), (x_test, _) = mnist.load_data()        #Load the images, but ignore the labels.
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+# Add noise
+noise = 0.3
+x_train_noisy = np.clip(x_train + noise*np.random.randn(*x_train.shape), 0, 1)
+x_test_noisy = np.clip(x_test + noise*np.random.randn(*x_test.shape), 0, 1)
+
+# Autoencoder
+inp = Input(shape=(28,28))
+x = Flatten()(inp)
+code = Dense(64, activation='relu')(x)
+x = Dense(784, activation='sigmoid')(code)
+out = Reshape((28,28))(x)
+
+model = Model(inp, out)
+model.compile(optimizer='adam', loss='mse')
+
+# Train
+history = model.fit(
+    x_train_noisy, x_train,
+    epochs=5,
+    batch_size=128,
+    validation_data=(x_test_noisy, x_test)
+)
+
+# Get output and code
+encoder = Model(inp, code)
+encoded = encoder.predict(x_test_noisy)
+decoded = model.predict(x_test_noisy)
+
+# --------------------------------- (recheck)
+MSE_test = MeanSquaredError()
+MSE_test(x_test, decoded)
+print("MSE on test set:", MSE_test.result().numpy())
+#---------------------------------- (recheck)
+
+# Display results
+plt.figure(figsize=(12,6))
+
+for i in range(5):
+    plt.subplot(4,5,i+1)
+    plt.imshow(x_test[i], cmap='gray')
+    plt.axis('off')
+    plt.title("Original")
+
+    plt.subplot(4,5,i+6)
+    plt.imshow(x_test_noisy[i], cmap='gray')
+    plt.axis('off')
+    plt.title("Noisy")
+
+    plt.subplot(4,5,i+11)
+    plt.imshow(encoded[i].reshape(8,8), cmap='gray')
+    plt.axis('off')
+    plt.title("Code")
+
+    plt.subplot(4,5,i+16)
+    plt.imshow(decoded[i], cmap='gray')
+    plt.axis('off')
+    plt.title("Output")
+
+plt.tight_layout()
+plt.show()
+
+# MSE Loss graph
+plt.plot(history.history['loss'], label='Training MSE')
+plt.plot(history.history['val_loss'], label='Validation MSE')
+plt.xlabel("Epoch")
+plt.ylabel("MSE")
+plt.title("MSE Loss")
+plt.legend()
+plt.grid()
+plt.show()
