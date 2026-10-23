@@ -1,0 +1,122 @@
+#SAE            (pract 4 - autoencoder)
+
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Flatten, Dense, Reshape
+from tensorflow.keras.regularizers import l1
+from tensorflow.keras.metrics import MeanSquaredError
+
+# Load data
+(x_train, _), (x_test, _) = mnist.load_data()
+
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+
+# Add noise
+noise = 0.3
+x_train_noisy = np.clip(
+    x_train + noise * np.random.randn(*x_train.shape), 0, 1
+)
+x_test_noisy = np.clip(
+    x_test + noise * np.random.randn(*x_test.shape), 0, 1
+)
+
+# Sparse Autoencoder
+inp = Input(shape=(28, 28))
+
+x = Flatten()(inp)
+
+# Sparse code
+code = Dense(
+    64,
+    activation='relu',
+    activity_regularizer=l1(0.000001)
+)(x)
+
+# Decoder
+x = Dense(784, activation='sigmoid')(code)
+out = Reshape((28, 28))(x)
+
+# Model
+model = Model(inp, out)
+
+model.compile(
+    optimizer='adam',
+    loss='mse'
+)
+
+# Train
+history = model.fit(
+    x_train_noisy,
+    x_train,
+    epochs=15,
+    batch_size=128,
+    validation_data=(x_test_noisy, x_test)
+)
+
+# Encoder
+encoder = Model(inp, code)
+
+# Encode
+encoded = encoder.predict(x_test_noisy)
+
+# Decode
+decoded = model.predict(x_test_noisy)
+
+
+# --------------------------------- (recheck)
+MSE_test = MeanSquaredError()
+MSE_test(x_test, decoded)
+print("MSE on test set:", MSE_test.result().numpy())
+#---------------------------------- (recheck)
+
+# Display results
+plt.figure(figsize=(12, 8))
+
+for i in range(5):
+
+    # Original
+    plt.subplot(4, 5, i + 1)
+    plt.imshow(x_test[i], cmap='gray')
+    plt.axis('off')
+    plt.title("Original")
+
+    # Noisy
+    plt.subplot(4, 5, i + 6)
+    plt.imshow(x_test_noisy[i], cmap='gray')
+    plt.axis('off')
+    plt.title("Noisy")
+
+    # Sparse Code
+    # Normalize only for visualization
+    # c = encoded[i]
+    # c = (c - c.min()) / (c.max() - c.min() + 1e-8)
+
+    plt.subplot(4, 5, i + 11)
+    plt.imshow(c.reshape(8, 8), cmap='gray')
+    plt.axis('off')
+    plt.title("Sparse Code")
+
+    # Output
+    plt.subplot(4, 5, i + 16)
+    plt.imshow(decoded[i], cmap='gray')
+    plt.axis('off')
+    plt.title("Output")
+
+plt.tight_layout()
+plt.show()
+
+# MSE Loss
+plt.figure(figsize=(7, 5))
+
+plt.plot(history.history['loss'], label='Training MSE')
+plt.plot(history.history['val_loss'], label='Validation MSE')
+
+plt.xlabel("Epoch")
+plt.ylabel("MSE")
+plt.title("Sparse Autoencoder MSE Loss")
+plt.legend()
+plt.grid()
+plt.show()
