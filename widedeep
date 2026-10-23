@@ -1,0 +1,76 @@
+# USING KERAS   (pract 2a)
+# 1ST ARCH WITH ACCURACY
+
+# Wide & Deep Neural Network
+
+import keras
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+from sklearn.metrics import accuracy_score
+
+
+
+housing = fetch_california_housing()
+
+X_train_full, X_test, y_train_full, y_test = train_test_split(
+    housing.data, housing.target, random_state=42
+)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X_train_full, y_train_full, random_state=42
+)
+
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train)
+X_valid_scaled = scaler.transform(X_valid)
+X_test_scaled = scaler.transform(X_test)
+
+inputs = keras.layers.Input(shape=X_train.shape[1:])
+hidden1 = keras.layers.Dense(30, activation="relu")(inputs)
+hidden2 = keras.layers.Dense(30, activation="relu")(hidden1)
+concat = keras.layers.Concatenate()([inputs, hidden2])
+output = keras.layers.Dense(1)(concat)
+
+model = keras.models.Model(inputs=inputs, outputs=output)
+
+model.compile(
+    optimizer="adam",
+    loss="mse",
+    metrics=["mae"]
+)
+
+history = model.fit(
+    X_train_scaled,
+    y_train,
+    epochs=20,
+    validation_data=(X_valid_scaled, y_valid)
+)
+
+mse_test = model.evaluate(X_test_scaled, y_test)
+print(mse_test)
+
+X_new = X_test_scaled[:3]
+y_pred = model.predict(X_new)
+
+print("Actual values:")
+print(y_test[:3])
+
+print("\nPredicted values:")
+print(y_pred)
+
+loss, mae = model.evaluate(X_test_scaled, y_test)
+
+print("Test MSE :", loss)
+print("Test MAE :", mae)
+
+from sklearn.metrics import r2_score
+
+y_pred = model.predict(X_test_scaled)
+
+r2 = r2_score(y_test, y_pred)
+
+print("R2 Score:", r2)
+print("Accuracy (%):", r2 * 100)
